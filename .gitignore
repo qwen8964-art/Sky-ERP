@@ -1,75 +1,67 @@
 ```
 # Dependencies
 node_modules/
-.pnpm-store/
-.npm/
-.yarn/
-.bun/
+**/node_modules/
 
 # Build outputs
 dist/
 build/
-.next/
-.nuxt/
-.svelte-kit/
-output/
-.bundle/
+target/
+**/dist/
+**/build/
 
-# TypeScript
+# TypeScript/JavaScript
 *.tsbuildinfo
 *.js.map
+*.jsx.map
 *.ts.map
+
+# Python (if any Python components exist)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+
+# Logs
+*.log
 
 # Environment variables
 .env
 .env.local
 .env.*
-!.env.example
 
-# IDE files
+# IDE specific
 .vscode/
 .idea/
 *.swp
 *.swo
-*.tmp
+*~
 
-# OS files
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# Coverage
+# Testing
 coverage/
-.nyc_output/
+.nyc_output
 istanbul/
 .jest/
 
-# Prisma
-prisma/migrations/
-prisma/seed/
-*.db
-*.db-journal
+# Temporary files
+*.tmp
+*.temp
+.DS_Store*
 
 # Package manager
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
-bun.lockb
 
-# Runtime
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Process
-.sucrase/
-$GENERATED_FILES/
-
-# Turborepo
-.turbo/
-
-# Vite
-vite.config.js.timestamp*
+# Docker
+.dockerenv
 ```

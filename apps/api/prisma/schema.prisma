@@ -1,0 +1,1249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// EMPRESAS Y ESTRUCTURA ORGANIZACIONAL
+// ============================================
+
+model MiEmpresa {
+  id_mi_empresa   Int     @id @default(autoincrement())
+  ruc             String  @db.VarChar(11)
+  razon_social    String  @db.VarChar(200)
+  nombre_fantasia String? @db.VarChar(200)
+  direccion       String? @db.VarChar(300)
+  telefono        String? @db.VarChar(20)
+  email           String? @db.VarChar(100)
+  igv             Decimal @default(18.0) @db.Decimal(5, 2)
+  moneda          String  @default("PEN") @db.VarChar(3)
+  activo          Boolean @default(true)
+
+  sedes    MiSede[]
+  usuarios UsuarioSkynet[]
+  personas Persona[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("mi_empresa")
+}
+
+model MiSede {
+  id_mi_sede    Int     @id @default(autoincrement())
+  id_mi_empresa Int
+  nombre        String  @db.VarChar(100)
+  direccion     String? @db.VarChar(300)
+  telefono      String? @db.VarChar(20)
+  activo        Boolean @default(true)
+
+  empresa      MiEmpresa         @relation(fields: [id_mi_empresa], references: [id_mi_empresa])
+  almacenes    MiAlmacen[]
+  usuarios     UsuarioSkynet[]
+  correlativos CorrelativosDoc[]
+  listasPrecio TipoListaPrecio[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("mi_sede")
+}
+
+model MiAlmacen {
+  id_mi_almacen Int     @id @default(autoincrement())
+  id_mi_sede    Int
+  nombre        String  @db.VarChar(100)
+  direccion     String? @db.VarChar(300)
+  responsable   String? @db.VarChar(100)
+  activo        Boolean @default(true)
+
+  sede     MiSede          @relation(fields: [id_mi_sede], references: [id_mi_sede])
+  usuarios UsuarioSkynet[]
+  stocks   AlmStock[]
+  guias    AlmGuia[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  StockSeries StockSeries[]
+
+  @@map("mi_almacen")
+}
+
+// ============================================
+// USUARIOS Y SEGURIDAD
+// ============================================
+
+model UsuarioSkynet {
+  id_usuario    Int       @id @default(autoincrement())
+  id_mi_empresa Int
+  id_mi_sede    Int?
+  id_mi_almacen Int?
+  login         String    @unique @db.VarChar(50)
+  password      String    @db.VarChar(255)
+  nombres       String    @db.VarChar(100)
+  apellidos     String    @db.VarChar(100)
+  email         String?   @db.VarChar(100)
+  activo        Boolean   @default(true)
+  bloqueado     Boolean   @default(false)
+  ultima_sesion DateTime?
+
+  empresa     MiEmpresa           @relation(fields: [id_mi_empresa], references: [id_mi_empresa])
+  sede        MiSede?             @relation(fields: [id_mi_sede], references: [id_mi_sede])
+  almacen     MiAlmacen?          @relation(fields: [id_mi_almacen], references: [id_mi_almacen])
+  privilegios UsuarioPrivilegio[]
+  sesiones    UsuarioSesion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios_skynet")
+}
+
+model UsuarioPrivilegio {
+  id_privilegio Int     @id @default(autoincrement())
+  id_usuario    Int
+  id_arbol      Int
+  ver           Boolean @default(false)
+  crear         Boolean @default(false)
+  editar        Boolean @default(false)
+  eliminar      Boolean @default(false)
+  aprobar       Boolean @default(false)
+
+  usuario UsuarioSkynet @relation(fields: [id_usuario], references: [id_usuario])
+  arbol   ArbolDet      @relation(fields: [id_arbol], references: [id_arbol])
+
+  @@map("usuario_privilegios")
+}
+
+model UsuarioSesion {
+  id_sesion  Int       @id @default(autoincrement())
+  id_usuario Int
+  token      String    @unique @db.VarChar(500)
+  ip_address String?   @db.VarChar(45)
+  user_agent String?   @db.VarChar(500)
+  inicio     DateTime  @default(now())
+  fin        DateTime?
+  activa     Boolean   @default(true)
+
+  usuario UsuarioSkynet @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@map("usuario_sesiones")
+}
+
+model ArbolDet {
+  id_arbol    Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(20)
+  descripcion String  @db.VarChar(100)
+  id_padre    Int?
+  modulo      String  @db.VarChar(2) // VE, CO, AL, TE, PR, CA, PL, CT, CR, TPV
+  orden       Int     @default(0)
+  icono       String? @db.VarChar(50)
+  ruta        String? @db.VarChar(200)
+  activo      Boolean @default(true)
+
+  padre       ArbolDet?           @relation("ArbolHierarchy", fields: [id_padre], references: [id_arbol])
+  hijos       ArbolDet[]          @relation("ArbolHierarchy")
+  privilegios UsuarioPrivilegio[]
+
+  @@map("arbol_det")
+}
+
+// ============================================
+// PERSONAS (CLIENTES, PROVEEDORES, VENDEDORES)
+// ============================================
+
+model Persona {
+  id_persona       Int       @id @default(autoincrement())
+  id_mi_empresa    Int
+  tipo_persona     String    @db.VarChar(20) // NATURAL, JURIDICA
+  tipo_documento   String    @default("RUC") @db.VarChar(20) // RUC, DNI, CE, PASAPORTE
+  numero_documento String    @db.VarChar(20)
+  razon_social     String?   @db.VarChar(200)
+  apellido_paterno String?   @db.VarChar(50)
+  apellido_materno String?   @db.VarChar(50)
+  nombres          String?   @db.VarChar(100)
+  nombre_comercial String?   @db.VarChar(200)
+  direccion        String?   @db.VarChar(300)
+  telefono         String?   @db.VarChar(20)
+  celular          String?   @db.VarChar(20)
+  email            String?   @db.VarChar(100)
+  fecha_nacimiento DateTime?
+  estado_civil     String?   @db.VarChar(20)
+  genero           String?   @db.VarChar(10)
+  activo           Boolean   @default(true)
+
+  empresa MiEmpresa @relation(fields: [id_mi_empresa], references: [id_mi_empresa])
+
+  cliente   Cliente?
+  proveedor Proveedor?
+  vendedor  Vendedore?
+
+  // Documentos de venta
+  cotizaciones      Cotizacion[]
+  comprobantesVenta ComprobanteVenta[]
+  ctasCobrar        CtasCobrar[]
+
+  // Documentos de compra
+  comprobantesCompra ComprobanteCompra[]
+  ctasPagar          CtasPagar[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("persona")
+}
+
+model Cliente {
+  id_cliente           Int     @id @default(autoincrement())
+  id_persona           Int     @unique
+  limite_credito       Decimal @default(0) @db.Decimal(15, 2)
+  dias_credito         Int     @default(0)
+  descuento_porcentaje Decimal @default(0) @db.Decimal(5, 2)
+  lista_precio_default Int?
+  activo               Boolean @default(true)
+
+  persona Persona @relation(fields: [id_persona], references: [id_persona])
+
+  @@map("cliente")
+}
+
+model Proveedor {
+  id_proveedor          Int      @id @default(autoincrement())
+  id_persona            Int      @unique
+  tipo_contribuyente    String?  @db.VarChar(50) // General, Especial, RER
+  porcentaje_retencion  Decimal? @db.Decimal(5, 2)
+  porcentaje_percepcion Decimal? @db.Decimal(5, 2)
+  cuenta_bancaria       String?  @db.VarChar(50)
+  banco                 String?  @db.VarChar(100)
+  activo                Boolean  @default(true)
+
+  persona Persona @relation(fields: [id_persona], references: [id_persona])
+
+  @@map("proveedor")
+}
+
+model Vendedore {
+  id_vendedor         Int      @id @default(autoincrement())
+  id_persona          Int      @unique
+  codigo              String   @unique @db.VarChar(20)
+  comision_porcentaje Decimal  @default(0) @db.Decimal(5, 2)
+  meta_venta          Decimal? @db.Decimal(15, 2)
+  activo              Boolean  @default(true)
+
+  persona      Persona            @relation(fields: [id_persona], references: [id_persona])
+  comprobantes ComprobanteVenta[]
+  Cotizacion   Cotizacion[]
+
+  @@map("vendedores")
+}
+
+// ============================================
+// PRODUCTOS E INVENTARIO
+// ============================================
+
+model FamiliaGrupo {
+  id_familia_grupo Int     @id @default(autoincrement())
+  codigo           String  @unique @db.VarChar(20)
+  descripcion      String  @db.VarChar(100)
+  id_padre         Int?
+  nivel            Int     @default(1)
+  tipo             String  @db.VarChar(20) // FAMILIA, GRUPO
+  activo           Boolean @default(true)
+
+  padre     FamiliaGrupo?  @relation("FamiliaHierarchy", fields: [id_padre], references: [id_familia_grupo])
+  hijos     FamiliaGrupo[] @relation("FamiliaHierarchy")
+  productos Productos[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("familia_grupo")
+}
+
+model Productos {
+  id_producto      Int      @id @default(autoincrement())
+  id_familia_grupo Int?
+  codigo           String   @unique @db.VarChar(50)
+  codigo_barra     String?  @db.VarChar(50)
+  nombre           String   @db.VarChar(200)
+  descripcion      String?  @db.Text
+  unidad_medida    String   @default("UND") @db.VarChar(20)
+  equivalencia     Decimal  @default(1) @db.Decimal(15, 4)
+  stock_minimo     Decimal  @default(0) @db.Decimal(15, 4)
+  stock_maximo     Decimal? @db.Decimal(15, 4)
+  precio_compra    Decimal  @default(0) @db.Decimal(15, 4)
+  controla_series  Boolean  @default(false)
+  tipo_impuesto    String   @default("GRAVADO") @db.VarChar(20) // GRAVADO, EXONERADO, INAFECTO
+  activo           Boolean  @default(true)
+
+  familia FamiliaGrupo? @relation(fields: [id_familia_grupo], references: [id_familia_grupo])
+
+  precios PrecioVentaProducto[]
+  stocks  AlmStock[]
+  series  StockSeries[]
+  kardex  Kardex[]
+
+  // Producción
+  formulaDetalle ProduccionFormulaDetalle[]
+
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  CotizacionDetalle        CotizacionDetalle[]
+  ComprobanteVentaDetalle  ComprobanteVentaDetalle[]
+  ComprobanteCompraDetalle ComprobanteCompraDetalle[]
+  AlmGuiaDetalle           AlmGuiaDetalle[]
+  ProduccionFormula        ProduccionFormula[]
+
+  @@map("productos")
+}
+
+model TipoListaPrecio {
+  id_lista_precio   Int     @id @default(autoincrement())
+  id_mi_sede        Int
+  nombre            String  @db.VarChar(100)
+  descripcion       String? @db.VarChar(300)
+  moneda            String  @default("PEN") @db.VarChar(3)
+  porcentaje_global Decimal @default(0) @db.Decimal(5, 2)
+  activo            Boolean @default(true)
+
+  sede    MiSede                @relation(fields: [id_mi_sede], references: [id_mi_sede])
+  precios PrecioVentaProducto[]
+
+  @@map("tipo_lista_precio")
+}
+
+model PrecioVentaProducto {
+  id_precio       Int       @id @default(autoincrement())
+  id_producto     Int
+  id_lista_precio Int
+  precio          Decimal   @db.Decimal(15, 4)
+  moneda          String    @default("PEN") @db.VarChar(3)
+  vigente_desde   DateTime  @default(now())
+  vigente_hasta   DateTime?
+
+  producto     Productos       @relation(fields: [id_producto], references: [id_producto])
+  lista_precio TipoListaPrecio @relation(fields: [id_lista_precio], references: [id_lista_precio])
+
+  @@map("precio_venta_productos")
+}
+
+model AlmStock {
+  id_stock       Int     @id @default(autoincrement())
+  id_producto    Int
+  id_mi_almacen  Int
+  cantidad       Decimal @default(0) @db.Decimal(15, 4)
+  costo_promedio Decimal @default(0) @db.Decimal(15, 4)
+
+  producto Productos @relation(fields: [id_producto], references: [id_producto])
+  almacen  MiAlmacen @relation(fields: [id_mi_almacen], references: [id_mi_almacen])
+
+  @@unique([id_producto, id_mi_almacen])
+  @@map("alm_stock")
+}
+
+model StockSeries {
+  id_serie       Int     @id @default(autoincrement())
+  id_producto    Int
+  id_mi_almacen  Int
+  numero_serie   String  @db.VarChar(100)
+  estado         String  @default("DISPONIBLE") @db.VarChar(20) // DISPONIBLE, ASIGNADO, VENDIDO
+  id_documento   Int?
+  tipo_documento String? @db.VarChar(20)
+
+  producto Productos @relation(fields: [id_producto], references: [id_producto])
+  almacen  MiAlmacen @relation(fields: [id_mi_almacen], references: [id_mi_almacen])
+
+  @@map("stock_series")
+}
+
+model Kardex {
+  id_kardex        Int      @id @default(autoincrement())
+  id_producto      Int
+  id_mi_almacen    Int
+  fecha            DateTime @default(now())
+  tipo_operacion   String   @db.VarChar(20) // INGRESO, SALIDA
+  tipo_documento   String   @db.VarChar(20)
+  numero_documento String   @db.VarChar(50)
+  cantidad         Decimal  @db.Decimal(15, 4)
+  costo_unitario   Decimal  @db.Decimal(15, 4)
+  costo_total      Decimal  @db.Decimal(15, 4)
+  saldo_cantidad   Decimal  @db.Decimal(15, 4)
+  referencia       String?  @db.VarChar(300)
+
+  producto Productos @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("kardex")
+}
+
+// ============================================
+// DOCUMENTOS DE VENTA
+// ============================================
+
+model CorrelativosDoc {
+  id_correlativo Int     @id @default(autoincrement())
+  id_mi_sede     Int
+  tipo_documento String  @db.VarChar(10) // FACT, BOL, NC, ND, COT, GS, GI, GR, OC
+  serie          String  @db.VarChar(10)
+  correlativo    Int     @default(0)
+  activo         Boolean @default(true)
+
+  sede MiSede @relation(fields: [id_mi_sede], references: [id_mi_sede])
+
+  @@unique([id_mi_sede, tipo_documento, serie])
+  @@map("correlativos_doc")
+}
+
+model Cotizacion {
+  id_cotizacion Int      @id @default(autoincrement())
+  numero        String   @unique @db.VarChar(50)
+  fecha         DateTime @default(now())
+  id_cliente    Int
+  id_vendedor   Int?
+  id_mi_sede    Int
+  id_mi_almacen Int
+  estado        String   @default("BORRADOR") @db.VarChar(20) // BORRADOR, APROBADA, ANULADA, CONVERTIDA
+  tipo_cambio   Decimal  @default(1) @db.Decimal(10, 4)
+  subtotal      Decimal  @default(0) @db.Decimal(15, 2)
+  igv           Decimal  @default(0) @db.Decimal(15, 2)
+  total         Decimal  @default(0) @db.Decimal(15, 2)
+  observaciones String?  @db.Text
+  validez_dias  Int      @default(7)
+
+  cliente  Persona             @relation(fields: [id_cliente], references: [id_persona])
+  vendedor Vendedore?          @relation(fields: [id_vendedor], references: [id_vendedor])
+  detalle  CotizacionDetalle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cotizacion")
+}
+
+model CotizacionDetalle {
+  id_detalle      Int     @id @default(autoincrement())
+  id_cotizacion   Int
+  id_producto     Int
+  cantidad        Decimal @db.Decimal(15, 4)
+  precio_unitario Decimal @db.Decimal(15, 4)
+  descuento       Decimal @default(0) @db.Decimal(15, 4)
+  impuesto        Boolean @default(true)
+  subtotal        Decimal @db.Decimal(15, 4)
+  igv             Decimal @db.Decimal(15, 4)
+  total           Decimal @db.Decimal(15, 4)
+  observaciones   String? @db.VarChar(300)
+
+  cotizacion Cotizacion @relation(fields: [id_cotizacion], references: [id_cotizacion])
+  producto   Productos  @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("cotizacion_detalle")
+}
+
+model ComprobanteVenta {
+  id_comprobante    Int       @id @default(autoincrement())
+  tipo_comprobante  String    @db.VarChar(10) // FACT, BOL, NC, ND
+  serie             String    @db.VarChar(10)
+  numero            String    @db.VarChar(20)
+  fecha_emision     DateTime  @default(now())
+  fecha_vencimiento DateTime?
+  id_cliente        Int
+  id_vendedor       Int?
+  id_mi_sede        Int
+  id_mi_almacen     Int
+  estado            String    @default("BORRADOR") @db.VarChar(20) // BORRADOR, APROBADO, ANULADO
+  tipo_cambio       Decimal   @default(1) @db.Decimal(10, 4)
+  subtotal          Decimal   @default(0) @db.Decimal(15, 2)
+  igv               Decimal   @default(0) @db.Decimal(15, 2)
+  percepcion        Decimal?  @db.Decimal(15, 2)
+  retencion         Decimal?  @db.Decimal(15, 2)
+  total             Decimal   @default(0) @db.Decimal(15, 2)
+  observaciones     String?   @db.Text
+  guia_salida       String?   @db.VarChar(50)
+  id_cotizacion     Int?
+
+  cliente      Persona                   @relation(fields: [id_cliente], references: [id_persona])
+  vendedor     Vendedore?                @relation(fields: [id_vendedor], references: [id_vendedor])
+  detalle      ComprobanteVentaDetalle[]
+  ctasCobrar   CtasCobrar[]
+  notasCredito NotaCredito[]
+  notasDebito  NotaDebito[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("comprobante_venta")
+}
+
+model ComprobanteVentaDetalle {
+  id_detalle      Int     @id @default(autoincrement())
+  id_comprobante  Int
+  id_producto     Int
+  cantidad        Decimal @db.Decimal(15, 4)
+  precio_unitario Decimal @db.Decimal(15, 4)
+  descuento       Decimal @default(0) @db.Decimal(15, 4)
+  impuesto        Boolean @default(true)
+  subtotal        Decimal @db.Decimal(15, 4)
+  igv             Decimal @db.Decimal(15, 4)
+  total           Decimal @db.Decimal(15, 4)
+
+  comprobante ComprobanteVenta @relation(fields: [id_comprobante], references: [id_comprobante])
+  producto    Productos        @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("comprobante_venta_detalle")
+}
+
+model NotaCredito {
+  id_nota_credito      Int      @id @default(autoincrement())
+  serie                String   @db.VarChar(10)
+  numero               String   @db.VarChar(20)
+  fecha_emision        DateTime @default(now())
+  id_comprobante_venta Int
+  id_cliente           Int
+  motivo               String   @db.VarChar(200) // DEVOLUCION, DESCUENTO, BONO, etc.
+  tipo_cambio          Decimal  @default(1) @db.Decimal(10, 4)
+  subtotal             Decimal  @default(0) @db.Decimal(15, 2)
+  igv                  Decimal  @default(0) @db.Decimal(15, 2)
+  total                Decimal  @default(0) @db.Decimal(15, 2)
+  estado               String   @default("PENDIENTE") @db.VarChar(20)
+
+  comprobante_venta ComprobanteVenta @relation(fields: [id_comprobante_venta], references: [id_comprobante])
+
+  @@map("nota_credito")
+}
+
+model NotaDebito {
+  id_nota_debito       Int      @id @default(autoincrement())
+  serie                String   @db.VarChar(10)
+  numero               String   @db.VarChar(20)
+  fecha_emision        DateTime @default(now())
+  id_comprobante_venta Int
+  id_cliente           Int
+  motivo               String   @db.VarChar(200)
+  tipo_cambio          Decimal  @default(1) @db.Decimal(10, 4)
+  subtotal             Decimal  @default(0) @db.Decimal(15, 2)
+  igv                  Decimal  @default(0) @db.Decimal(15, 2)
+  total                Decimal  @default(0) @db.Decimal(15, 2)
+  estado               String   @default("PENDIENTE") @db.VarChar(20)
+
+  comprobante_venta ComprobanteVenta @relation(fields: [id_comprobante_venta], references: [id_comprobante])
+
+  @@map("nota_debito")
+}
+
+// ============================================
+// DOCUMENTOS DE COMPRA
+// ============================================
+
+model ComprobanteCompra {
+  id_comprobante    Int       @id @default(autoincrement())
+  tipo_comprobante  String    @db.VarChar(10)
+  serie             String    @db.VarChar(10)
+  numero            String    @db.VarChar(20)
+  fecha_emision     DateTime  @default(now())
+  fecha_vencimiento DateTime?
+  id_proveedor      Int
+  id_mi_sede        Int
+  id_mi_almacen     Int
+  estado            String    @default("BORRADOR") @db.VarChar(20)
+  tipo_cambio       Decimal   @default(1) @db.Decimal(10, 4)
+  subtotal          Decimal   @default(0) @db.Decimal(15, 2)
+  igv               Decimal   @default(0) @db.Decimal(15, 2)
+  percepcion        Decimal?  @db.Decimal(15, 2)
+  retencion         Decimal?  @db.Decimal(15, 2)
+  total             Decimal   @default(0) @db.Decimal(15, 2)
+  observaciones     String?   @db.Text
+
+  proveedor Persona                    @relation(fields: [id_proveedor], references: [id_persona])
+  detalle   ComprobanteCompraDetalle[]
+  ctasPagar CtasPagar[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("comprobante_compra")
+}
+
+model ComprobanteCompraDetalle {
+  id_detalle      Int     @id @default(autoincrement())
+  id_comprobante  Int
+  id_producto     Int?
+  descripcion     String  @db.VarChar(300)
+  cantidad        Decimal @db.Decimal(15, 4)
+  precio_unitario Decimal @db.Decimal(15, 4)
+  descuento       Decimal @default(0) @db.Decimal(15, 4)
+  impuesto        Boolean @default(true)
+  subtotal        Decimal @db.Decimal(15, 4)
+  igv             Decimal @db.Decimal(15, 4)
+  total           Decimal @db.Decimal(15, 4)
+
+  comprobante ComprobanteCompra @relation(fields: [id_comprobante], references: [id_comprobante])
+  producto    Productos?        @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("comprobante_compra_detalle")
+}
+
+// ============================================
+// ALMACÉN - GUÍAS
+// ============================================
+
+model AlmGuia {
+  id_guia              Int      @id @default(autoincrement())
+  id_mi_almacen        Int
+  tipo_guia            String   @db.VarChar(10) // GI (Ingreso), GS (Salida)
+  numero               String   @db.VarChar(50)
+  fecha                DateTime @default(now())
+  id_motivo            Int?
+  tipo_documento_ref   String?  @db.VarChar(20)
+  numero_documento_ref String?  @db.VarChar(50)
+  id_tercero           Int?
+  estado               String   @default("ACTIVA") @db.VarChar(20)
+  observaciones        String?  @db.Text
+
+  almacen MiAlmacen        @relation(fields: [id_mi_almacen], references: [id_mi_almacen])
+  detalle AlmGuiaDetalle[]
+
+  @@map("alm_guia")
+}
+
+model AlmGuiaDetalle {
+  id_detalle     Int     @id @default(autoincrement())
+  id_guia        Int
+  id_producto    Int
+  cantidad       Decimal @db.Decimal(15, 4)
+  costo_unitario Decimal @db.Decimal(15, 4)
+  subtotal       Decimal @db.Decimal(15, 4)
+  igv            Decimal @db.Decimal(15, 4)
+  total          Decimal @db.Decimal(15, 4)
+
+  guia     AlmGuia   @relation(fields: [id_guia], references: [id_guia])
+  producto Productos @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("alm_guia_detalle")
+}
+
+model MotivoGuia {
+  id_motivo   Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(10)
+  descripcion String  @db.VarChar(100)
+  tipo        String  @db.VarChar(10) // INGRESO, SALIDA
+  activo      Boolean @default(true)
+
+  @@map("motivo_guia")
+}
+
+model GuiaRemision {
+  id_guia_remision   Int      @id @default(autoincrement())
+  serie              String   @db.VarChar(10)
+  numero             String   @db.VarChar(20)
+  fecha_emision      DateTime @default(now())
+  fecha_traslado     DateTime
+  id_mi_sede         Int
+  id_almacen_origen  Int
+  id_almacen_destino Int
+  id_transportista   Int?
+  placa_vehiculo     String?  @db.VarChar(20)
+  ruc_transportista  String?  @db.VarChar(11)
+  estado             String   @default("EN_TRANSITO") @db.VarChar(20)
+
+  @@map("guia_remision")
+}
+
+// ============================================
+// FINANZAS
+// ============================================
+
+model TipoMoneda {
+  codigo_moneda String  @id @db.VarChar(3) // PEN, USD
+  descripcion   String  @db.VarChar(50)
+  simbolo       String  @db.VarChar(5)
+  activo        Boolean @default(true)
+
+  tipoCambio TipoCambio[]
+
+  @@map("tipo_moneda")
+}
+
+model TipoCambio {
+  id_tipo_cambio Int      @id @default(autoincrement())
+  fecha          DateTime @default(now())
+  codigo_moneda  String
+  tipo_operacion String   @db.VarChar(10) // COMPRA, VENTA
+  valor          Decimal  @db.Decimal(10, 4)
+
+  moneda TipoMoneda @relation(fields: [codigo_moneda], references: [codigo_moneda])
+
+  @@unique([fecha, codigo_moneda, tipo_operacion])
+  @@map("tipo_cambio")
+}
+
+model CajaBanco {
+  id_caja_banco Int     @id @default(autoincrement())
+  nombre        String  @db.VarChar(100)
+  tipo          String  @db.VarChar(20) // CAJA, BANCO
+  moneda        String  @default("PEN") @db.VarChar(3)
+  numero_cuenta String? @db.VarChar(50)
+  saldo         Decimal @default(0) @db.Decimal(15, 2)
+  activo        Boolean @default(true)
+
+  operaciones CbOperaciones[]
+
+  @@map("caja_banco")
+}
+
+model CbOperaciones {
+  id_operacion       Int      @id @default(autoincrement())
+  id_caja_banco      Int
+  fecha              DateTime @default(now())
+  tipo_operacion     String   @db.VarChar(20) // INGRESO, EGRESO, TRANSFERENCIA
+  monto              Decimal  @db.Decimal(15, 2)
+  moneda             String   @default("PEN") @db.VarChar(3)
+  tipo_cambio        Decimal  @default(1) @db.Decimal(10, 4)
+  id_tercero         Int?
+  glosa              String   @db.VarChar(300)
+  id_documento_ref   Int?
+  tipo_documento_ref String?
+
+  caja_banco CajaBanco @relation(fields: [id_caja_banco], references: [id_caja_banco])
+
+  @@map("cb_operaciones")
+}
+
+model ChequesEmitidos {
+  id_cheque         Int      @id @default(autoincrement())
+  numero_cheque     String   @db.VarChar(20)
+  fecha_emision     DateTime
+  fecha_vencimiento DateTime
+  monto             Decimal  @db.Decimal(15, 2)
+  moneda            String   @default("PEN") @db.VarChar(3)
+  id_beneficiario   Int
+  id_cuenta         Int
+  estado            String   @default("PENDIENTE") @db.VarChar(20) // PENDIENTE, COBRADO, ANULADO
+  observaciones     String?  @db.Text
+
+  @@map("cheques_emitidos")
+}
+
+model ChequesRecibidos {
+  id_cheque         Int      @id @default(autoincrement())
+  numero_cheque     String   @db.VarChar(20)
+  fecha_emision     DateTime
+  fecha_vencimiento DateTime
+  monto             Decimal  @db.Decimal(15, 2)
+  moneda            String   @default("PEN") @db.VarChar(3)
+  id_girador        Int
+  estado            String   @default("PENDIENTE") @db.VarChar(20)
+  observaciones     String?  @db.Text
+
+  @@map("cheques_recibidos")
+}
+
+model LetrasEmitidas {
+  id_letra          Int      @id @default(autoincrement())
+  numero            String   @db.VarChar(20)
+  fecha_emision     DateTime
+  fecha_vencimiento DateTime
+  monto             Decimal  @db.Decimal(15, 2)
+  moneda            String   @default("PEN") @db.VarChar(3)
+  id_beneficiario   Int
+  estado            String   @default("PENDIENTE") @db.VarChar(20)
+
+  @@map("letras_emitidas")
+}
+
+model LerasRecibidas {
+  id_letra          Int      @id @default(autoincrement())
+  numero            String   @db.VarChar(20)
+  fecha_emision     DateTime
+  fecha_vencimiento DateTime
+  monto             Decimal  @db.Decimal(15, 2)
+  moneda            String   @default("PEN") @db.VarChar(3)
+  id_girador        Int
+  estado            String   @default("PENDIENTE") @db.VarChar(20)
+
+  @@map("leras_recibidas")
+}
+
+model CtasCobrar {
+  id_cta_cobrar        Int      @id @default(autoincrement())
+  id_comprobante_venta Int
+  id_cliente           Int
+  fecha_emision        DateTime
+  fecha_vencimiento    DateTime
+  monto_original       Decimal  @db.Decimal(15, 2)
+  monto_pendiente      Decimal  @db.Decimal(15, 2)
+  estado               String   @default("PENDIENTE") @db.VarChar(20) // PENDIENTE, PARCIAL, CANCELADO, ANULADO
+  observaciones        String?  @db.Text
+
+  comprobante_venta ComprobanteVenta @relation(fields: [id_comprobante_venta], references: [id_comprobante])
+  cliente           Persona          @relation(fields: [id_cliente], references: [id_persona])
+
+  @@map("ctas_cobrar")
+}
+
+model CtasPagar {
+  id_cta_pagar          Int      @id @default(autoincrement())
+  id_comprobante_compra Int
+  id_proveedor          Int
+  fecha_emision         DateTime
+  fecha_vencimiento     DateTime
+  monto_original        Decimal  @db.Decimal(15, 2)
+  monto_pendiente       Decimal  @db.Decimal(15, 2)
+  estado                String   @default("PENDIENTE") @db.VarChar(20)
+  observaciones         String?  @db.Text
+
+  comprobante_compra ComprobanteCompra @relation(fields: [id_comprobante_compra], references: [id_comprobante])
+  proveedor          Persona           @relation(fields: [id_proveedor], references: [id_persona])
+
+  @@map("ctas_pagar")
+}
+
+// ============================================
+// CONTABILIDAD
+// ============================================
+
+model CtPlanCuenta {
+  id_cuenta   Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(20)
+  descripcion String  @db.VarChar(200)
+  id_padre    Int?
+  nivel       Int     @default(1)
+  tipo        String  @db.VarChar(20) // ACTIVO, PASIVO, PATRIMONIO, INGRESO, GASTO
+  movimiento  String  @db.VarChar(10) // DEBE, HABER, AMBOS
+  activo      Boolean @default(true)
+
+  padre                CtPlanCuenta?          @relation("CuentaHierarchy", fields: [id_padre], references: [id_cuenta])
+  hijos                CtPlanCuenta[]         @relation("CuentaHierarchy")
+  CtLibroDiarioDetalle CtLibroDiarioDetalle[]
+
+  @@map("ct_plan_cuenta")
+}
+
+model CtCodigoAnexo {
+  id_anexo    Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(20)
+  descripcion String  @db.VarChar(200)
+  tipo_anexo  String  @db.VarChar(50) // CENTRO_COSTO, PROYECTO, PARTIDA
+  activo      Boolean @default(true)
+
+  @@map("ct_codigo_anexo")
+}
+
+model CtMatrizContable {
+  id_matriz       Int     @id @default(autoincrement())
+  tipo_operacion  String  @db.VarChar(50)
+  descripcion     String  @db.VarChar(300)
+  id_cuenta_debe  Int
+  id_cuenta_haber Int
+  id_anexo_debe   Int?
+  id_anexo_haber  Int?
+  activo          Boolean @default(true)
+
+  @@map("ct_matriz_contable")
+}
+
+model CtLibroDiario {
+  id_asiento         Int      @id @default(autoincrement())
+  numero_asiento     String   @db.VarChar(20)
+  fecha              DateTime @default(now())
+  glosa              String   @db.VarChar(300)
+  tipo_asiento       String   @db.VarChar(50) // MANUAL, AUTOMATICO
+  id_documento_ref   Int?
+  tipo_documento_ref String?
+
+  detalles CtLibroDiarioDetalle[]
+
+  @@map("ct_libro_diario")
+}
+
+model CtLibroDiarioDetalle {
+  id_detalle Int     @id @default(autoincrement())
+  id_asiento Int
+  id_cuenta  Int
+  debe       Decimal @default(0) @db.Decimal(15, 2)
+  haber      Decimal @default(0) @db.Decimal(15, 2)
+  id_anexo   Int?
+
+  asiento CtLibroDiario @relation(fields: [id_asiento], references: [id_asiento])
+  cuenta  CtPlanCuenta  @relation(fields: [id_cuenta], references: [id_cuenta])
+
+  @@map("ct_libro_diario_detalle")
+}
+
+// ============================================
+// PRODUCCIÓN
+// ============================================
+
+model ProduccionFormula {
+  id_formula             Int     @id @default(autoincrement())
+  codigo                 String  @unique @db.VarChar(50)
+  nombre                 String  @db.VarChar(200)
+  id_producto_resultante Int
+  cantidad_resultante    Decimal @default(1) @db.Decimal(15, 4)
+  unidad_medida          String  @db.VarChar(20)
+  costo_estimado         Decimal @default(0) @db.Decimal(15, 2)
+  activo                 Boolean @default(true)
+
+  producto_resultante Productos                  @relation(fields: [id_producto_resultante], references: [id_producto])
+  detalle             ProduccionFormulaDetalle[]
+  ordenes             ProduccionOrden[]
+
+  @@map("produccion_formula")
+}
+
+model ProduccionFormulaDetalle {
+  id_detalle     Int     @id @default(autoincrement())
+  id_formula     Int
+  id_producto    Int
+  cantidad       Decimal @db.Decimal(15, 4)
+  unidad_medida  String  @db.VarChar(20)
+  costo_unitario Decimal @db.Decimal(15, 4)
+  costo_total    Decimal @db.Decimal(15, 4)
+
+  formula  ProduccionFormula @relation(fields: [id_formula], references: [id_formula])
+  producto Productos         @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("produccion_formula_detalle")
+}
+
+model ProduccionOrden {
+  id_orden            Int       @id @default(autoincrement())
+  id_formula          Int
+  numero_orden        String    @db.VarChar(50)
+  fecha_programada    DateTime
+  fecha_inicio        DateTime?
+  fecha_fin           DateTime?
+  cantidad_a_producir Decimal   @db.Decimal(15, 4)
+  estado              String    @default("PROGRAMADA") @db.VarChar(20) // PROGRAMADA, EN_PROCESO, TERMINADA, CANCELADA
+  costo_real          Decimal   @default(0) @db.Decimal(15, 2)
+
+  formula ProduccionFormula @relation(fields: [id_formula], references: [id_formula])
+  partes  ProduccionParte[]
+
+  @@map("produccion_orden")
+}
+
+model ProduccionParte {
+  id_parte             Int      @id @default(autoincrement())
+  id_orden             Int
+  fecha                DateTime @default(now())
+  id_producto_material Int
+  cantidad_utilizada   Decimal  @db.Decimal(15, 4)
+  costo_unitario       Decimal  @db.Decimal(15, 4)
+  costo_total          Decimal  @db.Decimal(15, 4)
+  tipo                 String   @db.VarChar(20) // MATERIAL, AUXILIAR, MANO_OBRA
+
+  orden ProduccionOrden @relation(fields: [id_orden], references: [id_orden])
+
+  @@map("produccion_parte")
+}
+
+// ============================================
+// RECURSOS HUMANOS
+// ============================================
+
+model PlaTrabajadore {
+  id_trabajador       Int       @id @default(autoincrement())
+  id_persona          Int?
+  codigo              String    @unique @db.VarChar(20)
+  fecha_ingreso       DateTime
+  fecha_egreso        DateTime?
+  cargo               String    @db.VarChar(100)
+  area                String    @db.VarChar(100)
+  tipo_contrato       String    @db.VarChar(50)
+  sueldo_basico       Decimal   @default(0) @db.Decimal(15, 2)
+  asignacion_familiar Decimal   @default(0) @db.Decimal(15, 2)
+  id_afp              Int?
+  id_salud            Int?
+  activo              Boolean   @default(true)
+
+  contratos   PlaContrato[]
+  asistencias PlaAsistencia[]
+  boletas     PlaBoleta[]
+
+  @@map("pla_trabajadores")
+}
+
+model PlaContrato {
+  id_contrato   Int       @id @default(autoincrement())
+  id_trabajador Int
+  tipo_contrato String    @db.VarChar(50)
+  fecha_inicio  DateTime
+  fecha_fin     DateTime?
+  sueldo        Decimal   @db.Decimal(15, 2)
+  jornada_horas Decimal   @default(8) @db.Decimal(5, 2)
+  estado        String    @default("ACTIVO") @db.VarChar(20)
+
+  trabajador PlaTrabajadore @relation(fields: [id_trabajador], references: [id_trabajador])
+
+  @@map("pla_contrato")
+}
+
+model PlaAsistencia {
+  id_asistencia    Int       @id @default(autoincrement())
+  id_trabajador    Int
+  fecha            DateTime  @default(now())
+  hora_entrada     DateTime?
+  hora_salida      DateTime?
+  tardanza_minutos Int       @default(0)
+  faltas           Boolean   @default(false)
+  turno            String?   @db.VarChar(50)
+
+  trabajador PlaTrabajadore @relation(fields: [id_trabajador], references: [id_trabajador])
+
+  @@map("pla_asistencia")
+}
+
+model PlaTurno {
+  id_turno     Int     @id @default(autoincrement())
+  nombre       String  @db.VarChar(50)
+  hora_entrada String  @db.VarChar(10)
+  hora_salida  String  @db.VarChar(10)
+  activo       Boolean @default(true)
+
+  @@map("pla_turno")
+}
+
+model PlaPlanilla {
+  id_planilla      Int      @id @default(autoincrement())
+  periodo          String   @db.VarChar(7) // YYYY-MM
+  fecha_pago       DateTime
+  total_ingresos   Decimal  @db.Decimal(15, 2)
+  total_descuentos Decimal  @db.Decimal(15, 2)
+  total_neto       Decimal  @db.Decimal(15, 2)
+  estado           String   @default("PENDIENTE") @db.VarChar(20)
+
+  boletas PlaBoleta[]
+
+  @@map("pla_planilla")
+}
+
+model PlaBoleta {
+  id_boleta           Int     @id @default(autoincrement())
+  id_planilla         Int
+  id_trabajador       Int
+  periodo             String  @db.VarChar(7)
+  dias_trabajados     Decimal @default(30) @db.Decimal(5, 2)
+  sueldo_base         Decimal @db.Decimal(15, 2)
+  horas_extras        Decimal @default(0) @db.Decimal(15, 2)
+  asignacion_familiar Decimal @default(0) @db.Decimal(15, 2)
+  otros_ingresos      Decimal @default(0) @db.Decimal(15, 2)
+  total_ingresos      Decimal @db.Decimal(15, 2)
+  onp                 Decimal @default(0) @db.Decimal(15, 2)
+  afp_aporte          Decimal @default(0) @db.Decimal(15, 2)
+  renta_quinta        Decimal @default(0) @db.Decimal(15, 2)
+  otros_descuentos    Decimal @default(0) @db.Decimal(15, 2)
+  total_descuentos    Decimal @db.Decimal(15, 2)
+  sueldo_neto         Decimal @db.Decimal(15, 2)
+
+  planilla   PlaPlanilla    @relation(fields: [id_planilla], references: [id_planilla])
+  trabajador PlaTrabajadore @relation(fields: [id_trabajador], references: [id_trabajador])
+
+  @@map("pla_boleta")
+}
+
+model PlaTipoPension {
+  id_tipo_pension Int     @id @default(autoincrement())
+  codigo          String  @unique @db.VarChar(10)
+  nombre          String  @db.VarChar(100)
+  porcentaje      Decimal @db.Decimal(5, 2)
+  activo          Boolean @default(true)
+
+  @@map("pla_tipo_pension")
+}
+
+model PlaTipoSalud {
+  id_tipo_salud Int     @id @default(autoincrement())
+  codigo        String  @unique @db.VarChar(10)
+  nombre        String  @db.VarChar(100)
+  activo        Boolean @default(true)
+
+  @@map("pla_tipo_salud")
+}
+
+model PlaFondoPension {
+  id_fondo            Int     @id @default(autoincrement())
+  nombre              String  @db.VarChar(100) // INTEGRA, PROFUTURO, PRIMA, HABITAT
+  porcentaje_comision Decimal @db.Decimal(5, 2)
+  activo              Boolean @default(true)
+
+  @@map("pla_fondo_pension")
+}
+
+model PlaVacaciones {
+  id_vacaciones   Int       @id @default(autoincrement())
+  id_trabajador   Int
+  periodo         String    @db.VarChar(7)
+  dias_generados  Int       @default(30)
+  dias_gozados    Int       @default(0)
+  dias_pendientes Int       @default(30)
+  fecha_inicio    DateTime?
+  fecha_fin       DateTime?
+  estado          String    @default("PENDIENTE") @db.VarChar(20)
+
+  @@map("pla_vacaciones")
+}
+
+model PlaTipoCts {
+  id_tipo_cts Int     @id @default(autoincrement())
+  codigo      String  @unique @db.VarChar(10)
+  nombre      String  @db.VarChar(100)
+  activo      Boolean @default(true)
+
+  @@map("pla_tipo_cts")
+}
+
+model PlaQuintaCat {
+  id_registro        Int     @id @default(autoincrement())
+  id_trabajador      Int
+  anio               Int
+  remuneracion_anual Decimal @db.Decimal(15, 2)
+  deduccion_7uit     Decimal @db.Decimal(15, 2)
+  renta_neta         Decimal @db.Decimal(15, 2)
+  impuesto_calculado Decimal @db.Decimal(15, 2)
+
+  @@map("pla_quinta_cat")
+}
+
+// ============================================
+// CAPACITACIÓN
+// ============================================
+
+model CapCurso {
+  id_curso       Int     @id @default(autoincrement())
+  codigo         String  @unique @db.VarChar(20)
+  nombre         String  @db.VarChar(200)
+  descripcion    String? @db.Text
+  duracion_horas Decimal @db.Decimal(5, 2)
+  costo          Decimal @default(0) @db.Decimal(15, 2)
+  activo         Boolean @default(true)
+
+  matriculas     CapMatricula[]
+  programaciones CapProgramacion[]
+
+  @@map("cap_cursos")
+}
+
+model CapMatricula {
+  id_matricula    Int      @id @default(autoincrement())
+  id_curso        Int
+  id_alumno       Int
+  fecha_matricula DateTime @default(now())
+  estado          String   @default("MATRICULADO") @db.VarChar(20)
+  nota_final      Decimal? @db.Decimal(5, 2)
+
+  curso          CapCurso          @relation(fields: [id_curso], references: [id_curso])
+  calificaciones CapCalificacion[]
+
+  @@map("cap_matricula")
+}
+
+model CapCalificacion {
+  id_calificacion Int      @id @default(autoincrement())
+  id_matricula    Int
+  tipo_evaluacion String   @db.VarChar(50)
+  nota            Decimal  @db.Decimal(5, 2)
+  fecha           DateTime @default(now())
+
+  matricula CapMatricula @relation(fields: [id_matricula], references: [id_matricula])
+
+  @@map("cap_calificaciones")
+}
+
+model CapProgramacion {
+  id_programacion Int      @id @default(autoincrement())
+  id_curso        Int
+  fecha_inicio    DateTime
+  fecha_fin       DateTime
+  horario         String   @db.VarChar(100)
+  instructor      String   @db.VarChar(100)
+  aula            String?  @db.VarChar(50)
+  cupo_maximo     Int      @default(30)
+  inscritos       Int      @default(0)
+  estado          String   @default("PROGRAMADO") @db.VarChar(20)
+
+  curso CapCurso @relation(fields: [id_curso], references: [id_curso])
+
+  @@map("cap_programacion")
+}
+
+// ============================================
+// ALERTAS
+// ============================================
+
+model Alerta {
+  id_alerta          Int       @id @default(autoincrement())
+  nombre             String    @db.VarChar(100)
+  descripcion        String?   @db.Text
+  sql_query          String    @db.Text
+  frecuencia_minutos Int       @default(60)
+  ultimo_check       DateTime?
+  activa             Boolean   @default(true)
+
+  @@map("alertas")
+}
+
+// ============================================
+// WEB / TIENDA
+// ============================================
+
+model WebSite {
+  id_site Int     @id @default(autoincrement())
+  dominio String  @unique @db.VarChar(200)
+  nombre  String  @db.VarChar(100)
+  activo  Boolean @default(true)
+
+  contenidos WebContenido[]
+
+  @@map("web_sites")
+}
+
+model WebContenido {
+  id_contenido      Int       @id @default(autoincrement())
+  id_site           Int
+  slug              String    @db.VarChar(200)
+  titulo            String    @db.VarChar(200)
+  contenido         String    @db.Text
+  tipo              String    @db.VarChar(50)
+  publicado         Boolean   @default(false)
+  fecha_publicacion DateTime?
+
+  site WebSite @relation(fields: [id_site], references: [id_site])
+
+  @@map("web_contenidos")
+}
+
+model WebTienda {
+  id_producto_web Int     @id @default(autoincrement())
+  id_producto     Int
+  precio_web      Decimal @db.Decimal(15, 2)
+  stock_visible   Boolean @default(true)
+  destacado       Boolean @default(false)
+  activo          Boolean @default(true)
+
+  @@map("web_tienda")
+}
+
+model WebOpinione {
+  id_opinion Int      @id @default(autoincrement())
+  id_cliente Int
+  rating     Int      @db.SmallInt
+  comentario String?  @db.Text
+  fecha      DateTime @default(now())
+  aprobado   Boolean  @default(false)
+
+  @@map("web_opiniones")
+}
+
+model WebComentario {
+  id_comentario Int      @id @default(autoincrement())
+  id_contenido  Int
+  id_autor      Int?
+  comentario    String   @db.Text
+  fecha         DateTime @default(now())
+  aprobado      Boolean  @default(false)
+
+  @@map("web_comentarios")
+}

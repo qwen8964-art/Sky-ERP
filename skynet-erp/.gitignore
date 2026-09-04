@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+.pnpm
+npm-debug.log
+
+# Build
+dist
+build
+.next
+out
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Database
+*.db
+*.sqlite
+prisma/migrations
+
+# Test
+coverage
+playwright-report
+test-results

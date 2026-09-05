@@ -1,16 +1,16 @@
 import { Context } from 'hono';
-import prisma from '../../config/database';
+import prisma from '../../db.js';
 
 // Obtener todos los almacenes (filtrados por sede si se proporciona)
 export const getAlmacenes = async (c: Context) => {
   try {
     const user = c.get('user') as any;
-    const sedeId = c.req.query('sedeId') || user?.IdSede;
+    const sedeId = c.req.query('sedeId') || user?.id_mi_sede;
 
     const almacenes = await prisma.miAlmacen.findMany({
       where: {
-        IdSede: sedeId,
-        ESTADO: 'A',
+        id_mi_sede: sedeId ? parseInt(sedeId) : undefined,
+        activo: true,
       },
       include: {
         mi_sede: {
@@ -19,19 +19,19 @@ export const getAlmacenes = async (c: Context) => {
           },
         },
       },
-      orderBy: { NOMBRE: 'asc' },
+      orderBy: { nombre: 'asc' },
     });
 
     return c.json({
       success: true,
       data: almacenes.map(a => ({
-        IdAlmacen: a.IdAlmacen,
-        IdSede: a.IdSede,
-        nombre: a.NOMBRE,
-        direccion: a.DIRECCION,
-        telefono: a.TELEFONO,
-        sede: a.mi_sede.NOMBRE,
-        empresa: a.mi_sede.mi_empresa.RAZON_SOCIAL,
+        id_mi_almacen: a.id_mi_almacen,
+        id_mi_sede: a.id_mi_sede,
+        nombre: a.nombre,
+        direccion: a.direccion,
+        responsable: a.responsable,
+        sede: a.mi_sede.nombre,
+        empresa: a.mi_sede.mi_empresa.razon_social,
       })),
     });
   } catch (error) {
@@ -44,9 +44,9 @@ export const getAlmacenes = async (c: Context) => {
 export const getAlmacenById = async (c: Context) => {
   try {
     const { id } = c.req.param();
-    
+
     const almacen = await prisma.miAlmacen.findUnique({
-      where: { IdAlmacen: id },
+      where: { id_mi_almacen: parseInt(id) },
       include: {
         mi_sede: {
           include: {
@@ -63,14 +63,13 @@ export const getAlmacenById = async (c: Context) => {
     return c.json({
       success: true,
       data: {
-        IdAlmacen: almacen.IdAlmacen,
-        IdSede: almacen.IdSede,
-        nombre: almacen.NOMBRE,
-        direccion: almacen.DIRECCION,
-        telefono: almacen.TELEFONO,
-        email: almacen.EMAIL,
-        sede: almacen.mi_sede.NOMBRE,
-        empresa: almacen.mi_sede.mi_empresa.RAZON_SOCIAL,
+        id_mi_almacen: almacen.id_mi_almacen,
+        id_mi_sede: almacen.id_mi_sede,
+        nombre: almacen.nombre,
+        direccion: almacen.direccion,
+        responsable: almacen.responsable,
+        sede: almacen.mi_sede.nombre,
+        empresa: almacen.mi_sede.mi_empresa.razon_social,
       },
     });
   } catch (error) {
@@ -83,24 +82,23 @@ export const getAlmacenById = async (c: Context) => {
 export const createAlmacen = async (c: Context) => {
   try {
     const body = await c.req.json();
-    const { IdSede, nombre, direccion, telefono, email } = body;
+    const { id_mi_sede, nombre, direccion, responsable } = body;
 
     const almacen = await prisma.miAlmacen.create({
       data: {
-        IdSede,
-        NOMBRE: nombre,
-        DIRECCION: direccion,
-        TELEFONO: telefono,
-        EMAIL: email,
-        ESTADO: 'A',
+        id_mi_sede,
+        nombre,
+        direccion,
+        responsable,
+        activo: true,
       },
     });
 
     return c.json({
       success: true,
       data: {
-        IdAlmacen: almacen.IdAlmacen,
-        nombre: almacen.NOMBRE,
+        id_mi_almacen: almacen.id_mi_almacen,
+        nombre: almacen.nombre,
       },
       message: 'Almacén creado exitosamente',
     }, 201);
@@ -117,20 +115,19 @@ export const updateAlmacen = async (c: Context) => {
     const body = await c.req.json();
 
     const almacen = await prisma.miAlmacen.update({
-      where: { IdAlmacen: id },
+      where: { id_mi_almacen: parseInt(id) },
       data: {
-        NOMBRE: body.nombre,
-        DIRECCION: body.direccion,
-        TELEFONO: body.telefono,
-        EMAIL: body.email,
+        nombre: body.nombre,
+        direccion: body.direccion,
+        responsable: body.responsable,
       },
     });
 
     return c.json({
       success: true,
       data: {
-        IdAlmacen: almacen.IdAlmacen,
-        nombre: almacen.NOMBRE,
+        id_mi_almacen: almacen.id_mi_almacen,
+        nombre: almacen.nombre,
       },
       message: 'Almacén actualizado exitosamente',
     });
@@ -146,8 +143,8 @@ export const deleteAlmacen = async (c: Context) => {
     const { id } = c.req.param();
 
     await prisma.miAlmacen.update({
-      where: { IdAlmacen: id },
-      data: { ESTADO: 'I' },
+      where: { id_mi_almacen: parseInt(id) },
+      data: { activo: false },
     });
 
     return c.json({

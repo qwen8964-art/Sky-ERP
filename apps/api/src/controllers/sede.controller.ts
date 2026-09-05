@@ -1,41 +1,24 @@
 import { Context } from 'hono';
-import prisma from '../db';
+import prisma from '../../db.js';
 
-// Obtener todas las sedes (filtradas por empresa si se proporciona)
 export const getSedes = async (c: Context) => {
   try {
-    const user = c.get('user') as any;
-    const empresaId = c.req.query('empresaId') || user?.IdMiEmpresa;
-
     const sedes = await prisma.miSede.findMany({
-      where: {
-        id_mi_empresa: parseInt(empresaId),
-        activo: true,
-      },
-      include: {
-        empresa: true,
-        almacenes: {
-          where: { activo: true },
-        },
-      },
+      where: { activo: true },
+      include: { mi_empresa: true, almacenes: true },
       orderBy: { nombre: 'asc' },
     });
 
     return c.json({
       success: true,
-      data: sedes.map((s: any) => ({
-        IdSede: s.id_mi_sede,
-        IdMiEmpresa: s.id_mi_empresa,
+      data: sedes.map(s => ({
+        id_mi_sede: s.id_mi_sede,
+        id_mi_empresa: s.id_mi_empresa,
         nombre: s.nombre,
         direccion: s.direccion,
         telefono: s.telefono,
-        email: s.email,
-        empresa: s.empresa.razon_social,
-        almacenes: s.almacenes.map((a: any) => ({
-          IdAlmacen: a.id_mi_almacen,
-          nombre: a.nombre,
-          direccion: a.direccion,
-        })),
+        empresa: s.mi_empresa.razon_social,
+        almacenes: s.almacenes.map(a => a.nombre),
       })),
     });
   } catch (error) {
@@ -44,72 +27,43 @@ export const getSedes = async (c: Context) => {
   }
 };
 
-// Obtener sede por ID
 export const getSedeById = async (c: Context) => {
   try {
     const { id } = c.req.param();
-    
     const sede = await prisma.miSede.findUnique({
       where: { id_mi_sede: parseInt(id) },
-      include: {
-        empresa: true,
-        almacenes: {
-          where: { activo: true },
-        },
-      },
+      include: { mi_empresa: true, almacenes: true },
     });
 
     if (!sede) {
       return c.json({ error: 'Sede no encontrada' }, 404);
     }
 
-    return c.json({
-      success: true,
-      data: {
-        IdSede: sede.id_mi_sede,
-        IdMiEmpresa: sede.id_mi_empresa,
-        nombre: sede.nombre,
-        direccion: sede.direccion,
-        telefono: sede.telefono,
-        email: sede.email,
-        empresa: sede.empresa.razon_social,
-        almacenes: sede.almacenes.map((a: any) => ({
-          IdAlmacen: a.id_mi_almacen,
-          nombre: a.nombre,
-          direccion: a.direccion,
-          telefono: a.telefono,
-        })),
-      },
-    });
+    return c.json({ success: true, data: sede });
   } catch (error) {
     console.error('Get sede by id error:', error);
     return c.json({ error: 'Error al obtener sede' }, 500);
   }
 };
 
-// Crear sede
 export const createSede = async (c: Context) => {
   try {
     const body = await c.req.json();
-    const { IdMiEmpresa, nombre, direccion, telefono, email } = body;
+    const { id_mi_empresa, nombre, direccion, telefono } = body;
 
     const sede = await prisma.miSede.create({
       data: {
-        id_mi_empresa: parseInt(IdMiEmpresa),
-        nombre: nombre,
-        direccion: direccion,
-        telefono: telefono,
-        email: email,
+        id_mi_empresa,
+        nombre,
+        direccion,
+        telefono,
         activo: true,
       },
     });
 
     return c.json({
       success: true,
-      data: {
-        IdSede: sede.id_mi_sede,
-        nombre: sede.nombre,
-      },
+      data: { id_mi_sede: sede.id_mi_sede, nombre: sede.nombre },
       message: 'Sede creada exitosamente',
     }, 201);
   } catch (error) {
@@ -118,7 +72,6 @@ export const createSede = async (c: Context) => {
   }
 };
 
-// Actualizar sede
 export const updateSede = async (c: Context) => {
   try {
     const { id } = c.req.param();
@@ -126,20 +79,12 @@ export const updateSede = async (c: Context) => {
 
     const sede = await prisma.miSede.update({
       where: { id_mi_sede: parseInt(id) },
-      data: {
-        nombre: body.nombre,
-        direccion: body.direccion,
-        telefono: body.telefono,
-        email: body.email,
-      },
+      data: body,
     });
 
     return c.json({
       success: true,
-      data: {
-        IdSede: sede.id_mi_sede,
-        nombre: sede.nombre,
-      },
+      data: sede,
       message: 'Sede actualizada exitosamente',
     });
   } catch (error) {
@@ -148,7 +93,6 @@ export const updateSede = async (c: Context) => {
   }
 };
 
-// Eliminar sede (soft delete)
 export const deleteSede = async (c: Context) => {
   try {
     const { id } = c.req.param();
@@ -158,10 +102,7 @@ export const deleteSede = async (c: Context) => {
       data: { activo: false },
     });
 
-    return c.json({
-      success: true,
-      message: 'Sede eliminada exitosamente',
-    });
+    return c.json({ success: true, message: 'Sede eliminada exitosamente' });
   } catch (error) {
     console.error('Delete sede error:', error);
     return c.json({ error: 'Error al eliminar sede' }, 500);

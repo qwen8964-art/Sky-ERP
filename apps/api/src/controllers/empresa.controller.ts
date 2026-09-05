@@ -1,7 +1,6 @@
 import { Context } from 'hono';
-import prisma from '../db';
+import prisma from '../../db.js';
 
-// Obtener todas las empresas
 export const getEmpresas = async (c: Context) => {
   try {
     const empresas = await prisma.miEmpresa.findMany({
@@ -11,15 +10,16 @@ export const getEmpresas = async (c: Context) => {
 
     return c.json({
       success: true,
-      data: empresas.map((e: any) => ({
-        IdMiEmpresa: e.id_mi_empresa,
+      data: empresas.map(e => ({
+        id_mi_empresa: e.id_mi_empresa,
         ruc: e.ruc,
-        razonSocial: e.razon_social,
-        nombreComercial: e.nombre_fantasia,
+        razon_social: e.razon_social,
+        nombre_fantasia: e.nombre_fantasia,
         direccion: e.direccion,
         telefono: e.telefono,
         email: e.email,
-        estado: e.activo,
+        igv: e.igv,
+        moneda: e.moneda,
       })),
     });
   } catch (error) {
@@ -28,85 +28,47 @@ export const getEmpresas = async (c: Context) => {
   }
 };
 
-// Obtener empresa por ID
 export const getEmpresaById = async (c: Context) => {
   try {
     const { id } = c.req.param();
-    
     const empresa = await prisma.miEmpresa.findUnique({
       where: { id_mi_empresa: parseInt(id) },
-      include: {
-        sedes: {
-          where: { activo: true },
-        },
-      },
+      include: { sedes: true },
     });
 
     if (!empresa) {
       return c.json({ error: 'Empresa no encontrada' }, 404);
     }
 
-    return c.json({
-      success: true,
-      data: {
-        IdMiEmpresa: empresa.id_mi_empresa,
-        ruc: empresa.ruc,
-        razonSocial: empresa.razon_social,
-        nombreComercial: empresa.nombre_fantasia,
-        direccion: empresa.direccion,
-        telefono: empresa.telefono,
-        email: empresa.email,
-        igv: Number(empresa.igv),
-        estado: empresa.activo,
-        sedes: empresa.sedes.map((s: any) => ({
-          IdSede: s.id_mi_sede,
-          nombre: s.nombre,
-          direccion: s.direccion,
-          telefono: s.telefono,
-        })),
-      },
-    });
+    return c.json({ success: true, data: empresa });
   } catch (error) {
     console.error('Get empresa by id error:', error);
     return c.json({ error: 'Error al obtener empresa' }, 500);
   }
 };
 
-// Crear empresa
 export const createEmpresa = async (c: Context) => {
   try {
     const body = await c.req.json();
-    const { ruc, razonSocial, nombreComercial, direccion, telefono, email, igv } = body;
-
-    // Validar que el RUC no exista
-    const existing = await prisma.miEmpresa.findFirst({
-      where: { ruc: ruc },
-    });
-
-    if (existing) {
-      return c.json({ error: 'Ya existe una empresa con ese RUC' }, 409);
-    }
+    const { ruc, razon_social, nombre_fantasia, direccion, telefono, email, igv, moneda } = body;
 
     const empresa = await prisma.miEmpresa.create({
       data: {
-        ruc: ruc,
-        razon_social: razonSocial,
-        nombre_fantasia: nombreComercial || razonSocial,
-        direccion: direccion,
-        telefono: telefono,
-        email: email,
+        ruc,
+        razon_social,
+        nombre_fantasia,
+        direccion,
+        telefono,
+        email,
         igv: igv || 18.0,
+        moneda: moneda || 'PEN',
         activo: true,
       },
     });
 
     return c.json({
       success: true,
-      data: {
-        IdMiEmpresa: empresa.id_mi_empresa,
-        ruc: empresa.ruc,
-        razonSocial: empresa.razon_social,
-      },
+      data: { id_mi_empresa: empresa.id_mi_empresa, razon_social: empresa.razon_social },
       message: 'Empresa creada exitosamente',
     }, 201);
   } catch (error) {
@@ -115,7 +77,6 @@ export const createEmpresa = async (c: Context) => {
   }
 };
 
-// Actualizar empresa
 export const updateEmpresa = async (c: Context) => {
   try {
     const { id } = c.req.param();
@@ -123,24 +84,12 @@ export const updateEmpresa = async (c: Context) => {
 
     const empresa = await prisma.miEmpresa.update({
       where: { id_mi_empresa: parseInt(id) },
-      data: {
-        ruc: body.ruc,
-        razon_social: body.razonSocial,
-        nombre_fantasia: body.nombreComercial,
-        direccion: body.direccion,
-        telefono: body.telefono,
-        email: body.email,
-        igv: body.igv,
-      },
+      data: body,
     });
 
     return c.json({
       success: true,
-      data: {
-        IdMiEmpresa: empresa.id_mi_empresa,
-        ruc: empresa.ruc,
-        razonSocial: empresa.razon_social,
-      },
+      data: empresa,
       message: 'Empresa actualizada exitosamente',
     });
   } catch (error) {
@@ -149,7 +98,6 @@ export const updateEmpresa = async (c: Context) => {
   }
 };
 
-// Eliminar empresa (soft delete)
 export const deleteEmpresa = async (c: Context) => {
   try {
     const { id } = c.req.param();
@@ -159,10 +107,7 @@ export const deleteEmpresa = async (c: Context) => {
       data: { activo: false },
     });
 
-    return c.json({
-      success: true,
-      message: 'Empresa eliminada exitosamente',
-    });
+    return c.json({ success: true, message: 'Empresa eliminada exitosamente' });
   } catch (error) {
     console.error('Delete empresa error:', error);
     return c.json({ error: 'Error al eliminar empresa' }, 500);

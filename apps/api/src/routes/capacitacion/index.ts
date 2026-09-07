@@ -62,7 +62,7 @@ app.get('/cursos', async (c) => {
       ];
     }
     
-    const cursos = await prisma.capCursos.findMany({
+    const cursos = await prisma.capCurso.findMany({
       where,
       include: {
         programaciones: {
@@ -86,7 +86,7 @@ app.post('/cursos', zValidator('json', cursoSchema), async (c) => {
   try {
     const body = c.req.valid('json');
     
-    const curso = await prisma.capCursos.create({
+    const curso = await prisma.capCurso.create({
       data: {
         codigo: body.codigo,
         nombre: body.nombre,
@@ -114,7 +114,7 @@ app.put('/cursos/:id', zValidator('json', cursoSchema.partial()), async (c) => {
     const id = c.req.param('id');
     const body = c.req.valid('json');
     
-    const curso = await prisma.capCursos.update({
+    const curso = await prisma.capCurso.update({
       where: { id },
       data: body
     });
@@ -135,7 +135,7 @@ app.delete('/cursos/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.capCursos.update({
+    await prisma.capCurso.update({
       where: { id },
       data: { eliminado: true }
     });
@@ -384,7 +384,7 @@ app.get('/calificaciones', async (c) => {
     const where: any = { eliminado: false };
     if (idMatricula) where.idMatricula = idMatricula;
     
-    const calificaciones = await prisma.capCalificaciones.findMany({
+    const calificaciones = await prisma.capCalificacion.findMany({
       where,
       include: {
         matricula: {
@@ -423,7 +423,7 @@ app.post('/calificaciones', zValidator('json', calificacionSchema), async (c) =>
   try {
     const body = c.req.valid('json');
     
-    const calificacion = await prisma.capCalificaciones.create({
+    const calificacion = await prisma.capCalificacion.create({
       data: {
         idMatricula: body.idMatricula,
         nota: body.nota,
@@ -436,7 +436,7 @@ app.post('/calificaciones', zValidator('json', calificacionSchema), async (c) =>
     });
     
     // Verificar si el alumno aprobó (promedio >= 11)
-    const todasCalificaciones = await prisma.capCalificaciones.findMany({
+    const todasCalificaciones = await prisma.capCalificacion.findMany({
       where: { idMatricula: body.idMatricula, eliminado: false }
     });
     

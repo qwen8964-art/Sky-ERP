@@ -6,21 +6,21 @@ import {
   createEmpresa, 
   updateEmpresa, 
   deleteEmpresa 
-} from '../controllers/empresa.controller';
+} from './controllers/empresa.controller';
 import {
   getSedes,
   getSedeById,
   createSede,
   updateSede,
   deleteSede
-} from '../controllers/sede.controller';
+} from './controllers/sede.controller';
 import {
   getAlmacenes,
   getAlmacenById,
   createAlmacen,
   updateAlmacen,
   deleteAlmacen
-} from '../controllers/almacen.controller';
+} from './controllers/almacen.controller';
 
 const coreRoutes = new Hono();
 

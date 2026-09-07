@@ -44,7 +44,7 @@ export const login = async (c: Context) => {
     const { empresa, username, password } = body;
 
     // Buscar usuario por username y empresa
-    const user = await prisma.usuariosSkynet.findFirst({
+    const user = await prisma.usuarioSkynet.findFirst({
       where: {
         LOGIN: username,
         IdMiEmpresa: empresa,
@@ -70,7 +70,7 @@ export const login = async (c: Context) => {
     }
 
     // Verificar si ya tiene sesión activa (bloqueo de doble sesión)
-    const existingSession = await prisma.usuarioSesiones.findFirst({
+    const existingSession = await prisma.usuarioSesion.findFirst({
       where: {
         IdUsuario: user.IdUsuario,
         ESTADO: 'A', // Activo
@@ -85,7 +85,7 @@ export const login = async (c: Context) => {
     }
 
     // Crear sesión
-    const session = await prisma.usuarioSesiones.create({
+    const session = await prisma.usuarioSesion.create({
       data: {
         IdUsuario: user.IdUsuario,
         FECHA_INGRESO: new Date(),
@@ -110,7 +110,7 @@ export const login = async (c: Context) => {
     }, REFRESH_TOKEN_EXPIRES_IN);
 
     // Obtener permisos del usuario (árbol de navegación)
-    const permisos = await prisma.usuarioPrivilegios.findMany({
+    const permisos = await prisma.usuarioPrivilegio.findMany({
       where: { IdUsuario: user.IdUsuario },
       include: { arbol_det: true },
     });
@@ -156,7 +156,7 @@ export const register = async (c: Context) => {
     const { nombre, apellidos, email, username, password, idMiEmpresa } = body;
 
     // Verificar si el usuario ya existe
-    const existingUser = await prisma.usuariosSkynet.findFirst({
+    const existingUser = await prisma.usuarioSkynet.findFirst({
       where: { LOGIN: username },
     });
 
@@ -179,7 +179,7 @@ export const register = async (c: Context) => {
     });
 
     // Crear usuario
-    const user = await prisma.usuariosSkynet.create({
+    const user = await prisma.usuarioSkynet.create({
       data: {
         IdPersona: persona.IdPersona,
         LOGIN: username,
@@ -219,7 +219,7 @@ export const logout = async (c: Context) => {
     }
 
     // Invalidar sesión
-    await prisma.usuarioSesiones.update({
+    await prisma.usuarioSesion.update({
       where: { IdSesion: decoded.sessionId },
       data: {
         FECHA_SALIDA: new Date(),
@@ -249,7 +249,7 @@ export const getCurrentUser = async (c: Context) => {
       return c.json({ error: 'Token inválido o expirado' }, 401);
     }
 
-    const user = await prisma.usuariosSkynet.findUnique({
+    const user = await prisma.usuarioSkynet.findUnique({
       where: { IdUsuario: decoded.IdUsuario },
       include: {
         persona: true,
@@ -301,7 +301,7 @@ export const refreshToken = async (c: Context) => {
     }
 
     // Verificar que la sesión siga activa
-    const session = await prisma.usuarioSesiones.findUnique({
+    const session = await prisma.usuarioSesion.findUnique({
       where: { IdSesion: decoded.sessionId },
     });
 

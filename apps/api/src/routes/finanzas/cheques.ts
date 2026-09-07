@@ -47,7 +47,7 @@ app.get('/emitidos', async (c) => {
     if (idCajaBanco) where.idCajaBanco = idCajaBanco;
     if (estado) where.estado = estado;
     
-    const cheques = await prisma.chequesEmitidos.findMany({
+    const cheques = await prisma.chequeEmitido.findMany({
       where,
       include: {
         cajaBanco: {
@@ -73,7 +73,7 @@ app.post('/emitidos', zValidator('json', chequeEmitidoSchema), async (c) => {
   try {
     const body = c.req.valid('json');
     
-    const cheque = await prisma.chequesEmitidos.create({
+    const cheque = await prisma.chequeEmitido.create({
       data: {
         idSede: body.idSede,
         idCajaBanco: body.idCajaBanco,
@@ -108,7 +108,7 @@ app.put('/emitidos/:id/cobrar', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const cheque = await prisma.chequesEmitidos.update({
+    const cheque = await prisma.chequeEmitido.update({
       where: { id },
       data: { 
         estado: 'COBRADO',
@@ -147,7 +147,7 @@ app.put('/emitidos/:id/anular', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const cheque = await prisma.chequesEmitidos.update({
+    const cheque = await prisma.chequeEmitido.update({
       where: { id },
       data: { 
         estado: 'ANULADO',
@@ -179,7 +179,7 @@ app.get('/recibidos', async (c) => {
     if (idCliente) where.idCliente = idCliente;
     if (estado) where.estado = estado;
     
-    const cheques = await prisma.chequesRecibidos.findMany({
+    const cheques = await prisma.chequeRecibido.findMany({
       where,
       include: {
         cliente: {
@@ -210,7 +210,7 @@ app.post('/recibidos', zValidator('json', chequeRecibidoSchema), async (c) => {
   try {
     const body = c.req.valid('json');
     
-    const cheque = await prisma.chequesRecibidos.create({
+    const cheque = await prisma.chequeRecibido.create({
       data: {
         idSede: body.idSede,
         idCliente: body.idCliente,
@@ -251,7 +251,7 @@ app.put('/recibidos/:id/cobrar', async (c) => {
     }
     
     const resultado = await prisma.$transaction(async (tx) => {
-      const cheque = await tx.chequesRecibidos.update({
+      const cheque = await tx.chequeRecibido.update({
         where: { id },
         data: { 
           estado: 'COBRADO',
@@ -293,7 +293,7 @@ app.put('/recibidos/:id/rechazar', async (c) => {
     const id = c.req.param('id');
     const { motivo } = await c.req.json();
     
-    const cheque = await prisma.chequesRecibidos.update({
+    const cheque = await prisma.chequeRecibido.update({
       where: { id },
       data: { 
         estado: 'RECHAZADO',
@@ -317,7 +317,7 @@ app.put('/recibidos/:id/anular', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const cheque = await prisma.chequesRecibidos.update({
+    const cheque = await prisma.chequeRecibido.update({
       where: { id },
       data: { 
         estado: 'ANULADO',

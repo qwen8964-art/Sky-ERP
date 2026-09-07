@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
-import { login, register, logout, getCurrentUser, refreshToken } from '../controllers/auth.controller';
-import { validateLogin } from '../validators/auth.validator';
+import { login, register, logout, getCurrentUser, refreshToken } from './controllers/auth.controller';
+import { validateLogin } from './validators/auth.validator';
 
 const authRoutes = new Hono();
 

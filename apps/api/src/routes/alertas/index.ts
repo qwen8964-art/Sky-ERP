@@ -16,7 +16,7 @@ app.get('/alertas', async (c) => {
     if (estado !== undefined) where.estado = estado === 'true';
     if (modulo) where.modulo = modulo;
     
-    const alertas = await prisma.alertas.findMany({
+    const alertas = await prisma.alerta.findMany({
       where,
       orderBy: { nombre: 'asc' }
     });
@@ -33,7 +33,7 @@ app.post('/alertas', async (c) => {
   try {
     const body = await c.req.json();
     
-    const alerta = await prisma.alertas.create({
+    const alerta = await prisma.alerta.create({
       data: {
         nombre: body.nombre,
         descripcion: body.descripcion,
@@ -64,7 +64,7 @@ app.put('/alertas/:id', async (c) => {
     const id = c.req.param('id');
     const body = await c.req.json();
     
-    const alerta = await prisma.alertas.update({
+    const alerta = await prisma.alerta.update({
       where: { id },
       data: body
     });
@@ -85,7 +85,7 @@ app.delete('/alertas/:id', async (c) => {
   try {
     const id = c.req.param('id');
     
-    await prisma.alertas.update({
+    await prisma.alerta.update({
       where: { id },
       data: { eliminado: true }
     });
@@ -102,7 +102,7 @@ app.post('/alertas/:id/ejecutar', async (c) => {
   try {
     const id = c.req.param('id');
     
-    const alerta = await prisma.alertas.findUnique({
+    const alerta = await prisma.alerta.findUnique({
       where: { id, eliminado: false }
     });
     
@@ -143,7 +143,7 @@ app.get('/usuarios', async (c) => {
       };
     }
     
-    const usuarios = await prisma.usuariosSkynet.findMany({
+    const usuarios = await prisma.usuarioSkynet.findMany({
       where,
       include: {
         persona: {
@@ -184,7 +184,7 @@ app.get('/arbol-navegacion', async (c) => {
     
     if (idUsuario) {
       // Obtener permisos del usuario
-      const permisos = await prisma.usuarioPrivilegios.findMany({
+      const permisos = await prisma.usuarioPrivilegio.findMany({
         where: { idUsuario, eliminado: false },
         select: { idArbolDet: true }
       });
@@ -229,14 +229,14 @@ app.post('/usuarios/:id/permisos', async (c) => {
     
     const resultado = await prisma.$transaction(async (tx) => {
       // Eliminar permisos anteriores
-      await tx.usuarioPrivilegios.deleteMany({
+      await tx.usuarioPrivilegio.deleteMany({
         where: { idUsuario: id }
       });
       
       // Crear nuevos permisos
       const permisos = await Promise.all(
         idsArbol.map((idArbol: string) =>
-          tx.usuarioPrivilegios.create({
+          tx.usuarioPrivilegio.create({
             data: {
               idUsuario: id,
               idArbolDet: idArbol
